@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f3f4f6; display: flex; height: 100vh; }
+       
+        /* Sidebar */
+        .sidebar { width: 250px; background: #1e293b; color: white; padding: 20px; }
+        .sidebar h2 { font-size: 20px; margin-bottom: 30px; color: #38bdf8; }
+        .nav-item { padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: #cbd5e1; text-decoration: none; display: block; }
+        .nav-item:hover { background: #334155; color: white; }
+        .active { background: #38bdf8; color: #1e293b; font-weight: 600; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .logout-btn { padding: 10px 20px; background: #ef4444; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; }
+
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .card h3 { margin-bottom: 15px; color: #1e293b; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px; }
+        .info-row { margin: 10px 0; font-size: 16px; color: #475569; }
+        .badge { display: inline-block; padding: 4px 12px; background: #dcfce7; color: #166534; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>CollegePortal</h2>
+        <a href="#" class="nav-item active">Dashboard</a>
+        <a href="#" class="nav-item">My Courses</a>
+        <a href="#" class="nav-item">Assignments</a>
+    </div>
+    <div class="main-content">
+        <div class="header">
+            <h1>Welcome back, {{ user['username'] }}!</h1>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+        <div class="card">
+            <h3>Academic Overview</h3>
+            <div class="info-row"><strong>Student ID:</strong> {{ user['username'] }} <span class="badge">Active</span></div>
+            <div class="info-row"><strong>Program Details:</strong></div>
+            <p style="color: #64748b; line-height: 1.6;">{{ user['details'] }}</p>
+            <br>
+            <a href="{{ url_for('download_report') }}" style="text-decoration: none;">
+                <button style="padding: 10px 20px; background: #38bdf8; border: none; border-radius: 6px; cursor: pointer; color: white;">Download Report</button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
