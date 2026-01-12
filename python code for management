@@ -1,0 +1,96 @@
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+import mysql.connector
+
+app = Flask(__name__)
+app.secret_key = 'supersecretkey'
+
+# MySQL Configuration - Update with your MySQL credentials
+db_config = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '', # Change this
+    'database': 'college_portal'
+}
+
+def get_db_connection():
+    return mysql.connector.connect(**db_config)
+
+@app.route('/')
+def index():
+    return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+   
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+   
+    # Secure query to check user credentials
+    query = "SELECT * FROM users WHERE username = %s AND password = %s"
+    cursor.execute(query, (username, password))
+    user = cursor.fetchone()
+   
+    cursor.close()
+    conn.close()
+
+    if user:
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['role'] = user['role']
+       
+        if user['role'] == 'teacher':
+            return redirect(url_for('teacher_dashboard'))
+        else:
+            return redirect(url_for('student_dashboard'))
+    else:
+        return "Invalid Login. Please check your credentials."
+
+@app.route('/student')
+def student_dashboard():
+    if 'role' in session and session['role'] == 'student':
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (session['user_id'],))
+        user_data = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return render_template('student_dashboard.html', user=user_data)
+    return redirect(url_for('index'))
+
+@app.route('/teacher')
+def teacher_dashboard():
+    if 'role' in session and session['role'] == 'teacher':
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Teacher can see all students
+        cursor.execute("SELECT username, details FROM users WHERE role = 'student'")
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return render_template('teacher_dashboard.html', students=students)
+    return redirect(url_for('index'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+@app.route('/download_report')
+def download_report():
+    if 'role' in session and session['role'] == 'student':
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (session['user_id'],))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if user:
+            report_content = f"Student Report\n\nStudent ID: {user['username']}\nDetails: {user['details']}\n"
+            return Response(report_content, mimetype="text/plain", headers={"Content-disposition": "attachment; filename=student_report.txt"})
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
