@@ -12,7 +12,7 @@
         /* Sidebar */
         .sidebar { width: 250px; background: #1e293b; color: white; padding: 20px; }
         .sidebar h2 { font-size: 20px; margin-bottom: 30px; color: #38bdf8; }
-        .nav-item { padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: #cbd5e1; text-decoration: none; display: block; }
+        .nav-item { padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: #ffffff; text-decoration: none; display: block; }
         .nav-item:hover { background: #334155; color: white; }
         .active { background: #38bdf8; color: #1e293b; font-weight: 600; }
 
@@ -29,11 +29,17 @@
 </head>
 <body>
     <div class="sidebar">
-        <h2>CollegePortal</h2>
-        <a href="#" class="nav-item active">Dashboard</a>
-        <a href="#" class="nav-item">My Courses</a>
-        <a href="#" class="nav-item">Assignments</a>
+    <h2>CollegePortal</h2>
+    <a href="#" class="nav-item active">Dashboard</a>
+    <div class="nav-item">My Courses
+        <ul style="margin-top:5px; margin-left:15px; list-style-type:disc;">
+            {% for subject in subjects %}
+                <li style="color: #e0a5fc; font-size:14px;">{{ subject }}</li>
+            {% endfor %}
+        </ul>
     </div>
+    <a href="{{ url_for('assignments') }}" class="nav-item">Assignments</a>
+</div>
     <div class="main-content">
         <div class="header">
             <h1>Welcome back, {{ user['username'] }}!</h1>
