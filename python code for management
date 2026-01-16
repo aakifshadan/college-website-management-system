@@ -8,7 +8,7 @@ app.secret_key = 'supersecretkey'
 db_config = {
     'host': 'localhost',
     'user': 'root',
-    'password': '', # Change this
+    'password': 'asdfzxcv', # Change this
     'database': 'college_portal'
 }
 
@@ -56,7 +56,17 @@ def student_dashboard():
         user_data = cursor.fetchone()
         cursor.close()
         conn.close()
-        return render_template('student_dashboard.html', user=user_data)
+
+        # List of subjects
+        subjects = [
+            "Tamil", "English", "Maths", "Physics",
+            "Electrical Engineering", 
+            "Digital Principles of Computer Organization",
+            "Python"
+        ]
+
+        return render_template('student_dashboard.html', user=user_data, subjects=subjects)
+
     return redirect(url_for('index'))
 
 @app.route('/teacher')
@@ -64,13 +74,132 @@ def teacher_dashboard():
     if 'role' in session and session['role'] == 'teacher':
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # Teacher can see all students
-        cursor.execute("SELECT username, details FROM users WHERE role = 'student'")
+
+        # 1️⃣ Total students
+        cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role='student'")
+        total_students = cursor.fetchone()['total']
+
+        # 2️⃣ Pending grades = students who have no marks entry
+        cursor.execute("""
+            SELECT COUNT(*) AS pending
+            FROM users u
+            LEFT JOIN marks m ON u.id = m.student_id
+            WHERE u.role='student' AND m.student_id IS NULL
+        """)
+        pending_grades = cursor.fetchone()['pending']
+
+        # 3️⃣ Fetch students list
+        cursor.execute("SELECT id, username, details FROM users WHERE role='student'")
         students = cursor.fetchall()
+
+        # 4️⃣ Optional: Calculate Avg Attendance by parsing details
+        total_att = 0
+        count_att = 0
+        for s in students:
+            if "Attendance:" in s['details']:
+                try:
+                    att_str = s['details'].split("Attendance:")[1].strip().replace("%","")
+                    att_val = float(att_str)
+                    total_att += att_val
+                    count_att += 1
+                except:
+                    continue
+        avg_attendance = round(total_att / count_att) if count_att > 0 else 0
+
         cursor.close()
         conn.close()
-        return render_template('teacher_dashboard.html', students=students)
+
+        return render_template(
+            'teacher_dashboard.html',
+            students=students,
+            total_students=total_students,
+            pending_grades=pending_grades,
+            avg_attendance=avg_attendance
+        )
+
     return redirect(url_for('index'))
+
+
+@app.route('/add_student', methods=['POST'])
+def add_student():
+    if 'role' in session and session['role'] == 'teacher':
+        username = request.form['username']
+        password = request.form['password']
+        details = request.form['details']
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = "INSERT INTO users (username, password, role, details) VALUES (%s, %s, 'student', %s)"
+        cursor.execute(query, (username, password, details))
+        conn.commit()  # ✅ must commit
+        cursor.close()
+        conn.close()
+
+        flash("Student added successfully")
+        return redirect(url_for('teacher_dashboard'))
+
+    return redirect(url_for('index'))
+
+
+@app.route('/edit_marks/<student_id>')
+def edit_marks(student_id):
+    if 'role' in session and session['role'] == 'teacher':
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT * FROM users WHERE id=%s", (student_id,))
+        student = cursor.fetchone()
+
+        cursor.execute("SELECT * FROM marks WHERE student_id=%s", (student_id,))
+        marks = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return render_template('edit_marks.html', student=student, marks=marks)
+
+    return redirect(url_for('index'))
+
+
+@app.route('/save_marks', methods=['POST'])
+def save_marks():
+    if 'role' in session and session['role'] == 'teacher':
+        student_id = request.form['student_id']
+        subject = request.form['subject']
+        marks = request.form['marks']
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = "INSERT INTO marks (student_id, subject, marks) VALUES (%s, %s, %s)"
+        cursor.execute(query, (student_id, subject, marks))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        flash("Marks updated successfully")
+        return redirect(url_for('teacher_dashboard'))
+
+    return redirect(url_for('index'))
+
+
+@app.route('/assignments')
+def assignments():
+    if 'role' in session and session['role'] == 'student':
+        # List of subjects (same as My Courses)
+        subjects = [
+            "Tamil", "English", "Maths", "Physics",
+            "Electrical Engineering",
+            "Digital Principles of Computer Organization",
+            "Python"
+        ]
+        return render_template('assignments.html', subjects=subjects)
+
+    return redirect(url_for('index'))
+
+
 
 @app.route('/logout')
 def logout():
