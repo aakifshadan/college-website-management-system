@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Marks</title>
+</head>
+<body>
+    <h2>Marks for {{ student.username }}</h2>
+
+    <h3>Add Marks</h3>
+    <form action="/save_marks" method="POST">
+        <input type="hidden" name="student_id" value="{{ student.id }}">
+        <input type="text" name="subject" placeholder="Subject" required>
+        <input type="number" name="marks" placeholder="Marks" required>
+        <button type="submit">Save</button>
+    </form>
+
+    <h3>Existing Marks</h3>
+    <ul>
+        {% for m in marks %}
+            <li>{{ m.subject }} : {{ m.marks }}</li>
+        {% endfor %}
+    </ul>
+
+    <a href="/teacher">Back</a>
+</body>
+</html>
