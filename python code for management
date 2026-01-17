@@ -4,17 +4,18 @@ import mysql.connector
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
-# MySQL Configuration - Update with your MySQL credentials
+# ===================== DATABASE CONFIG =====================
 db_config = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'asdfzxcv', # Change this
+    'password': 'asdfzxcv',
     'database': 'college_portal'
 }
 
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
+# ===================== AUTH =====================
 @app.route('/')
 def index():
     return render_template('login.html')
@@ -23,15 +24,14 @@ def index():
 def login():
     username = request.form['username']
     password = request.form['password']
-   
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-   
-    # Secure query to check user credentials
-    query = "SELECT * FROM users WHERE username = %s AND password = %s"
-    cursor.execute(query, (username, password))
+    cursor.execute(
+        "SELECT * FROM users WHERE username=%s AND password=%s",
+        (username, password)
+    )
     user = cursor.fetchone()
-   
     cursor.close()
     conn.close()
 
@@ -39,187 +39,179 @@ def login():
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['role'] = user['role']
-       
-        if user['role'] == 'teacher':
-            return redirect(url_for('teacher_dashboard'))
-        else:
-            return redirect(url_for('student_dashboard'))
-    else:
-        return "Invalid Login. Please check your credentials."
 
-@app.route('/student')
-def student_dashboard():
-    if 'role' in session and session['role'] == 'student':
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE id = %s", (session['user_id'],))
-        user_data = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        return redirect(url_for(
+            'teacher_dashboard' if user['role'] == 'teacher' else 'student_dashboard'
+        ))
 
-        # List of subjects
-        subjects = [
-            "Tamil", "English", "Maths", "Physics",
-            "Electrical Engineering", 
-            "Digital Principles of Computer Organization",
-            "Python"
-        ]
-
-        return render_template('student_dashboard.html', user=user_data, subjects=subjects)
-
-    return redirect(url_for('index'))
-
-@app.route('/teacher')
-def teacher_dashboard():
-    if 'role' in session and session['role'] == 'teacher':
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        # 1️⃣ Total students
-        cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role='student'")
-        total_students = cursor.fetchone()['total']
-
-        # 2️⃣ Pending grades = students who have no marks entry
-        cursor.execute("""
-            SELECT COUNT(*) AS pending
-            FROM users u
-            LEFT JOIN marks m ON u.id = m.student_id
-            WHERE u.role='student' AND m.student_id IS NULL
-        """)
-        pending_grades = cursor.fetchone()['pending']
-
-        # 3️⃣ Fetch students list
-        cursor.execute("SELECT id, username, details FROM users WHERE role='student'")
-        students = cursor.fetchall()
-
-        # 4️⃣ Optional: Calculate Avg Attendance by parsing details
-        total_att = 0
-        count_att = 0
-        for s in students:
-            if "Attendance:" in s['details']:
-                try:
-                    att_str = s['details'].split("Attendance:")[1].strip().replace("%","")
-                    att_val = float(att_str)
-                    total_att += att_val
-                    count_att += 1
-                except:
-                    continue
-        avg_attendance = round(total_att / count_att) if count_att > 0 else 0
-
-        cursor.close()
-        conn.close()
-
-        return render_template(
-            'teacher_dashboard.html',
-            students=students,
-            total_students=total_students,
-            pending_grades=pending_grades,
-            avg_attendance=avg_attendance
-        )
-
-    return redirect(url_for('index'))
-
-
-@app.route('/add_student', methods=['POST'])
-def add_student():
-    if 'role' in session and session['role'] == 'teacher':
-        username = request.form['username']
-        password = request.form['password']
-        details = request.form['details']
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        query = "INSERT INTO users (username, password, role, details) VALUES (%s, %s, 'student', %s)"
-        cursor.execute(query, (username, password, details))
-        conn.commit()  # ✅ must commit
-        cursor.close()
-        conn.close()
-
-        flash("Student added successfully")
-        return redirect(url_for('teacher_dashboard'))
-
-    return redirect(url_for('index'))
-
-
-@app.route('/edit_marks/<student_id>')
-def edit_marks(student_id):
-    if 'role' in session and session['role'] == 'teacher':
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("SELECT * FROM users WHERE id=%s", (student_id,))
-        student = cursor.fetchone()
-
-        cursor.execute("SELECT * FROM marks WHERE student_id=%s", (student_id,))
-        marks = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-        return render_template('edit_marks.html', student=student, marks=marks)
-
-    return redirect(url_for('index'))
-
-
-@app.route('/save_marks', methods=['POST'])
-def save_marks():
-    if 'role' in session and session['role'] == 'teacher':
-        student_id = request.form['student_id']
-        subject = request.form['subject']
-        marks = request.form['marks']
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        query = "INSERT INTO marks (student_id, subject, marks) VALUES (%s, %s, %s)"
-        cursor.execute(query, (student_id, subject, marks))
-        conn.commit()
-
-        cursor.close()
-        conn.close()
-
-        flash("Marks updated successfully")
-        return redirect(url_for('teacher_dashboard'))
-
-    return redirect(url_for('index'))
-
-
-@app.route('/assignments')
-def assignments():
-    if 'role' in session and session['role'] == 'student':
-        # List of subjects (same as My Courses)
-        subjects = [
-            "Tamil", "English", "Maths", "Physics",
-            "Electrical Engineering",
-            "Digital Principles of Computer Organization",
-            "Python"
-        ]
-        return render_template('assignments.html', subjects=subjects)
-
-    return redirect(url_for('index'))
-
-
+    return "Invalid Login"
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
+# ===================== STUDENT =====================
+@app.route('/student')
+def student_dashboard():
+    if session.get('role') != 'student':
+        return redirect(url_for('index'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE id=%s", (session['user_id'],))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    subjects = [
+        "Tamil", "English", "Maths", "Physics",
+        "Electrical Engineering",
+        "Digital Principles of Computer Organization",
+        "Python"
+    ]
+
+    return render_template('student_dashboard.html', user=user, subjects=subjects)
+
+# ===================== TEACHER =====================
+@app.route('/teacher')
+def teacher_dashboard():
+    if session.get('role') != 'teacher':
+        return redirect(url_for('index'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role='student'")
+    total_students = cursor.fetchone()['total']
+
+    cursor.execute("""
+        SELECT COUNT(*) AS pending
+        FROM users u
+        LEFT JOIN marks m ON u.id=m.student_id
+        WHERE u.role='student' AND m.student_id IS NULL
+    """)
+    pending_grades = cursor.fetchone()['pending']
+
+    cursor.execute("SELECT id, username, details FROM users WHERE role='student'")
+    students = cursor.fetchall()
+
+    total_att, count = 0, 0
+    for s in students:
+        if s['details'] and "Attendance:" in s['details']:
+            try:
+                att = float(
+                    s['details'].split("Attendance:")[1].replace("%", "").strip()
+                )
+                total_att += att
+                count += 1
+            except:
+                pass
+
+    avg_attendance = round(total_att / count) if count else 0
+
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        'teacher_dashboard.html',
+        students=students,
+        total_students=total_students,
+        pending_grades=pending_grades,
+        avg_attendance=avg_attendance
+    )
+
+# ===================== STUDENT MANAGEMENT =====================
+@app.route('/add_student', methods=['POST'])
+def add_student():
+    if session.get('role') != 'teacher':
+        return redirect(url_for('index'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, password, role, details) VALUES (%s,%s,'student',%s)",
+        (
+            request.form['username'],
+            request.form['password'],
+            request.form['details']
+        )
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Student added successfully")
+    return redirect(url_for('teacher_dashboard'))
+
+@app.route('/update_student_details', methods=['POST'])
+def update_student_details():
+    if session.get('role') != 'teacher':
+        return redirect(url_for('index'))
+
+    details = f"GPA: {request.form['gpa']} | Attendance: {request.form['attendance']}%"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET details=%s WHERE id=%s AND role='student'",
+        (details, request.form['student_id'])
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Student record updated")
+    return redirect(url_for('teacher_dashboard'))
+
+@app.route('/delete_student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    if session.get('role') != 'teacher':
+        return redirect(url_for('index'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM marks WHERE student_id=%s", (student_id,))
+    cursor.execute("DELETE FROM users WHERE id=%s AND role='student'", (student_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Student removed")
+    return redirect(url_for('teacher_dashboard'))
+
+# ===================== EXTRA =====================
+@app.route('/assignments')
+def assignments():
+    if session.get('role') != 'student':
+        return redirect(url_for('index'))
+
+    subjects = [
+        "Tamil", "English", "Maths", "Physics",
+        "Electrical Engineering",
+        "Digital Principles of Computer Organization",
+        "Python"
+    ]
+    return render_template('assignments.html', subjects=subjects)
+
 @app.route('/download_report')
 def download_report():
-    if 'role' in session and session['role'] == 'student':
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE id = %s", (session['user_id'],))
-        user = cursor.fetchone()
-        cursor.close()
-        conn.close()
+    if session.get('role') != 'student':
+        return redirect(url_for('index'))
 
-        if user:
-            report_content = f"Student Report\n\nStudent ID: {user['username']}\nDetails: {user['details']}\n"
-            return Response(report_content, mimetype="text/plain", headers={"Content-disposition": "attachment; filename=student_report.txt"})
-    return redirect(url_for('index'))
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE id=%s", (session['user_id'],))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    content = f"Student Report\n\nStudent ID: {user['username']}\nDetails: {user['details']}"
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-Disposition": "attachment; filename=student_report.txt"}
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
